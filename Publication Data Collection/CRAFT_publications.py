@@ -22,7 +22,6 @@ def get_author_works(author_id, start_date, end_date):
     works = []
     cursor = "*"
     while True:
-        # can we index while having a specific date range?
         if start_date == 0:
             url = f"https://api.openalex.org/works?filter=author.id:{author_id}&per_page=200&cursor={cursor}"
         else:
@@ -46,10 +45,8 @@ def get_author_works(author_id, start_date, end_date):
                 "journal": journal
             })
         cursor = data["meta"].get("next_cursor")
-
         if cursor is None:
             break
-
     return works
 
 
@@ -64,19 +61,21 @@ def compute_h_index(citations):
     return h
 
 def popular_works(works, top_n=2):
-    # or find a system to identify author's most popular works (40% above the average citation count of author?)
     return sorted(works, key=lambda x: x["citations"], reverse=True)[:top_n]
 
-def export_csv(papers, filename="papers.csv"):
-
-    with open(filename, "w", newline="", encoding="utf-8") as f:
+def export_csv(data, savefile):
+    with open(savefile, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["title", "year", "journal", "citations"]
+            fieldnames=["researcher", "num_papers", "total_citations", "h_index"]
         )
         writer.writeheader()
-        for p in papers:
-            writer.writerow(p)
+        writer.writerow({
+            "researcher": data["name"],
+            "num_papers": data["num_papers"],
+            "total_citations": data["total_citations"],
+            "h_index": data["h_index"]
+        })
 
 def analyze_researcher(orcid, start_date, end_date):
     
@@ -103,22 +102,29 @@ if __name__ == "__main__":
 
     # specified time period, please insert as string in format "YYYY-MM-DD" (dates are inclusive)
     # if not querying, leave as "start_date = 0", "end_date = 0" -> integers, not strings
-    start_date = "2023-01-01"
+    start_date = 0
     end_date = "2026-03-02"
+
+    # change savefile name if needed, default is "CRAFT_authors.csv"
+    savefile = "CRAFT_authors.csv"
 
     for id in orcid:
         data = analyze_researcher(id, start_date, end_date)
 
+        if start_date != 0:
+            print(f"\nInformation from {start_date} to {end_date} (YYYY-MM-DD):")
         print("\nResearcher:", data["name"])
         print("Number of papers:", data["num_papers"])
         print("Total citations:", data["total_citations"])
-        print("Citation list:", [p["citations"] for p in data["papers"]])
+        # note to self remove this row later, just for testing purposes
+        #print("Citation list:", [p["citations"] for p in data["papers"]])
         print("h-index:", data["h_index"])
         print("\nTop 2 papers:")
         for work in data["top_works"]:
             print(f"  - {work['title']} ({work['citations']} citations)")
 
-        # TODO: export as file that can be transferred to excel database 
-        #export_csv(data["papers"])
+    # if importing into excel, please ensure that ORCID names matches excel file names. uncomment the following two lines if desired.
+    # export_csv(data, savefile)
+    # print(f"\nResearcher data saved to {savefile}")
 
-        #print("\nPaper list saved to papers.csv")
+# notes for jennifer: good idea to learn how to use power query to import the papers.csv data.. will bring this up at next work study meet. append operation seems ideal.
