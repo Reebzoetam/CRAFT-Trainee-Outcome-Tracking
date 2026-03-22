@@ -29,9 +29,6 @@ def get_author_name(author_id):
 
     return data.get("display_name", "Unknown")
 
-# only include list of institutions that researcher's associated institutions -> focus on hospitals
-# keep raw data in csv
-# keep journals & institutions separate 
 def get_author_works(author_id, start_date, end_date):
     works = []
     cursor = "*"
@@ -48,7 +45,14 @@ def get_author_works(author_id, start_date, end_date):
         for work in data["results"]:
             title = work.get("title", "Unknown")
             citations = work.get("cited_by_count", 0)
-            year = work.get("publication_year", None)
+            date = work.get("publication_date", None)
+            biblio = work.get("biblio", {})
+            issue = biblio.get("issue")
+            authors = []
+            for authorship in work.get("authorships", []):
+                author = authorship.get("author", {})
+                authors.append(author.get("display_name", "Unknown"))
+
             journal = None
             primary_location = work.get("primary_location")
 
@@ -58,7 +62,7 @@ def get_author_works(author_id, start_date, end_date):
             for authorship in work.get("authorships", []):
                 author = authorship.get("author", {})
 
-                if author.get("id") == author_id:
+                if author.get("id", "").endswith(author_id.split("/")[-1]):
 
                     for inst in authorship.get("institutions", []):
                         name = inst.get("display_name", "Unknown")
@@ -68,14 +72,15 @@ def get_author_works(author_id, start_date, end_date):
             works.append({
                 "title": title,
                 "citations": citations,
-                "year": year,
-                "journal": journal
+                "authors": authors,
+                "publication date": date,
+                "journal": journal,
+                "issue": issue
             })
         cursor = data["meta"].get("next_cursor")
         if cursor is None:
             break
     return works, institution_counts
-
 
 def compute_h_index(citations):
     citations_sorted = sorted(citations, reverse=True)
@@ -98,35 +103,41 @@ def journal_count(works):
     return journal_dict
 
 # only include list of institutions that researcher's associated institutions -> focus on hospitals
-def export_csv_curated(data, savefile):
+# ask jennifer if current institutions is more accurate?
+def export_csv_curated(all_data, savefile):
     with open(savefile, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
             fieldnames=["researcher", "num_papers", "total_citations", "h_index"]
         )
         writer.writeheader()
-        writer.writerow({
-            "researcher": data["name"],
-            "num_papers": data["num_papers"],
-            "total_citations": data["total_citations"],
-            "h_index": data["h_index"]
-        })
+        for data in all_data:
+            writer.writerow({
+                "researcher": data["name"],
+                "num_papers": data["num_papers"],
+                "total_citations": data["total_citations"],
+                "h_index": data["h_index"]
+            })
 
 # includes data from above, as well as total journal counts, institution counts, and list of papers.
-def export_csv_raw(data, savefile):
+# use this if checking publications in a date range for papers -> full citation title, journal, issue, date, authors // separate file 
+def export_csv_raw(all_data, savefile):
     with open(savefile, "w", newline="", encoding="utf-8") as f:
         writer = csv.DictWriter(
             f,
-            fieldnames=["researcher", "num_papers", "total_citations", "h_index"]
+            fieldnames=["researcher", "num_papers", "total_citations", "h_index", "institutions", "journal_counts", "papers"]
         )
         writer.writeheader()
-        writer.writerow({
-            "researcher": data["name"],
-            "num_papers": data["num_papers"],
-            "total_citations": data["total_citations"],
-            "h_index": data["h_index"]
-            # ask jennifer if she wants the journal list in csv form
-        })
+        for data in all_data:
+            writer.writerow({
+                "researcher": data["name"],
+                "num_papers": data["num_papers"],
+                "total_citations": data["total_citations"],
+                "h_index": data["h_index"],
+                "institutions": data["institutions"],
+                "journal_counts": data["journal_counts"],
+                "papers": data["papers"]
+            })
 
 def analyze_researcher(orcid, start_date, end_date):
     if re.match(r"^\d{4}-\d{4}-\d{4}-\d{3}[\dX]$", orcid) is not None:
@@ -160,22 +171,25 @@ if __name__ == "__main__":
     # replace variables as needed here:
     # author orcid, please insert as string. you can also copy-paste into an array separated by comma (i.e. orcid = ["0000-0001-7735-1341", "0000-0002-1825-0097"])
     # please also insert any openalex IDs here by taking the 11 character code after the profile's main URL (i.e. https://openalex.org/A1234567890 -> "A1234567890")
-    orcid = ["0000-0001-7735-1341", "0009-0005-6618-9795", "a5060582284"]
+    orcid = ["0000-0001-7735-1341", "0009-0005-6618-9795", "A5060582284", "A5113863381"]
 
     # specified time period, please insert as string in format "YYYY-MM-DD" (dates are inclusive)
     # if not querying, leave as "start_date = 0", "end_date = 0" -> integers, not strings
     start_date = 0
     end_date = "2026-03-02"
-    # add feature for listing papers -> full citation title, journal, issue, date, authors // separate file 
 
-    # change savefile name if needed, default is "CRAFT_authors.csv"
-    savefile_raw = "CRAFT_authors.csv"
+    # change savefile name if needed, defaults are as listed. your previous files may be overwritten if you use the same name.
+    savefile_raw = "CRAFT_authors_raw.csv"
     savefile_curated = "CRAFT_authors_curated.csv"
+
+    all_data = []
 
     for id in orcid:
         data = analyze_researcher(id, start_date, end_date)
+        all_data.append(data)
 
-        if start_date != 0:
+        # uncomment out only if you wish to print out the data in the terminal, otherwise it will only be saved in the csv files.
+        '''if start_date != 0:
             print(f"\nInformation from {start_date} to {end_date} (YYYY-MM-DD):")
         print("\nResearcher:", data["name"])
         print("Number of papers:", data["num_papers"])
@@ -185,12 +199,9 @@ if __name__ == "__main__":
         print("Institutions:", data["institutions"])
         print("\nTop 2 papers:")
         for work in data["top_works"]:
-            print(f"  - {work['title']} ({work['citations']} citations)")
-
-    # if importing into excel, please ensure that ORCID names matches excel file names. uncomment the following two lines if desired.
-    # export_csv_curated(data, savefile_curated)
-    # print(f"\nResearcher data saved to {savefile_curated}")
-    # export_csv_raw(data, savefile_raw)
-    # print(f"\nResearcher data saved to {savefile_raw}")
-
-# notes for jennifer: good idea to learn how to use power query to import the papers.csv data.. will bring this up at next work study meet. append operation seems ideal.
+            print(f"  - {work['title']} ({work['citations']} citations)")'''
+    # uncomment the following lines to save to specific csvs.
+    export_csv_curated(all_data, savefile_curated)
+    print(f"\nResearcher data saved to {savefile_curated}")
+    export_csv_raw(all_data, savefile_raw)
+    print(f"\nResearcher data saved to {savefile_raw}")
