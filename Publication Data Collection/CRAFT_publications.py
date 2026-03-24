@@ -9,7 +9,7 @@ def get_openalex_author(orcid):
     data = r.json()
 
     if data["meta"]["count"] == 0:
-        raise Exception("Author not found in OpenAlex")
+        raise ValueError(f"No author found for ORCID {orcid}")
 
     author = data["results"][0]
 
@@ -49,6 +49,17 @@ def get_author_works(author_id, start_date, end_date):
             biblio = work.get("biblio", {})
             issue = biblio.get("issue")
             authors = []
+            grants = []
+
+            for grant in work.get("grants", []):
+                funder = grant.get("funder_display_name", "Unknown")
+                award_id = grant.get("award_id", "Unknown")
+
+                grants.append({
+                    "funder": funder,
+                    "award_id": award_id
+                })
+
             for authorship in work.get("authorships", []):
                 author = authorship.get("author", {})
                 authors.append(author.get("display_name", "Unknown"))
@@ -62,12 +73,13 @@ def get_author_works(author_id, start_date, end_date):
             for authorship in work.get("authorships", []):
                 author = authorship.get("author", {})
 
-                if author.get("id", "").endswith(author_id.split("/")[-1]):
+                if author and author.get("id"):
+                    if author.get("id", "").endswith(author_id.split("/")[-1]):
 
-                    for inst in authorship.get("institutions", []):
-                        name = inst.get("display_name", "Unknown")
+                        for inst in authorship.get("institutions", []):
+                            name = inst.get("display_name", "Unknown")
 
-                        institution_counts[name] = institution_counts.get(name, 0) + 1
+                            institution_counts[name] = institution_counts.get(name, 0) + 1
 
             works.append({
                 "title": title,
@@ -75,7 +87,8 @@ def get_author_works(author_id, start_date, end_date):
                 "authors": authors,
                 "publication date": date,
                 "journal": journal,
-                "issue": issue
+                "issue": issue,
+                "grants": grants
             })
         cursor = data["meta"].get("next_cursor")
         if cursor is None:
@@ -164,14 +177,20 @@ def analyze_researcher(orcid, start_date, end_date):
         "top_works": top_works,
         "h_index": h_index,
         "journal_counts": journal_counts, 
-        "institutions": institution_counts
+        "institutions": institution_counts,
     }
 
 if __name__ == "__main__":
     # replace variables as needed here:
     # author orcid, please insert as string. you can also copy-paste into an array separated by comma (i.e. orcid = ["0000-0001-7735-1341", "0000-0002-1825-0097"])
     # please also insert any openalex IDs here by taking the 11 character code after the profile's main URL (i.e. https://openalex.org/A1234567890 -> "A1234567890")
-    orcid = ["0000-0001-7735-1341", "0009-0005-6618-9795", "A5060582284", "A5113863381"]
+    orcid = ["0009-0000-8339-4639", "0000-0002-2459-7177", "0000-0003-0585-4200", "0000-0002-4742-1633", "0000-0002-0089-6826", 
+             "0000-0001-9063-3933", "0000-0001-7309-1095", "0000-0002-1872-3923", "0009-0006-4561-4673", "0000-0001-7309-1095", 
+             "0000-0002-6965-4403", "A5060582284", "0000-0002-9342-6128", "A5113863381", "0000-0003-1025-7937", "0009-0008-7076-3173", 
+             "A5074198034", "A5020615309", "0000-0002-3127-8668", "0000-0003-1495-7156", "A5072492922", "0000-0002-5174-6342", "0000-0002-8585-6996", 
+             "0000-0002-8061-797X", "0000-0002-2663-5245", "A5080817995", "A5111181693", "0009-0001-6399-6226", "0000-0002-8243-1503", 
+             "A5072259798", "A5049643215", "A5081628711", "0000-0001-9086-0925", "0000-0001-7754-2180", "0000-0002-3346-7526", 
+             "0000-0002-3779-4727", "0000-0001-7735-1341", "0000-0002-0236-6116", "0009-0005-6618-9795", "0000-0002-1871-6969", "0009-0006-3355-4597"]
 
     # specified time period, please insert as string in format "YYYY-MM-DD" (dates are inclusive)
     # if not querying, leave as "start_date = 0", "end_date = 0" -> integers, not strings
@@ -185,9 +204,13 @@ if __name__ == "__main__":
     all_data = []
 
     for id in orcid:
-        data = analyze_researcher(id, start_date, end_date)
-        all_data.append(data)
-
+        try:
+            print(f"Processing researcher with ID: {id}...")
+            data = analyze_researcher(id, start_date, end_date)
+            all_data.append(data)
+        except ValueError as e:
+            print(e)
+            continue
         # uncomment out only if you wish to print out the data in the terminal, otherwise it will only be saved in the csv files.
         '''if start_date != 0:
             print(f"\nInformation from {start_date} to {end_date} (YYYY-MM-DD):")
