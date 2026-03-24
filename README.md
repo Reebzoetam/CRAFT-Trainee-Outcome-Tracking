@@ -23,7 +23,7 @@ Using the OpenAlex API, the script retrieves publication data for a list of rese
     - Curated dataset (summary metrics per researcher)
     - Raw dataset (detailed publication-level data)
 
-Please see the [outputs](/final_scripts/data_manipulation.py) folder for sample .csv outputs.
+Please see the [outputs](/Publication Data Collection/Example Outputs) folder for sample .csv outputs.
 
 ## How to Run
 
