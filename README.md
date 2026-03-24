@@ -33,6 +33,7 @@ Make sure you have Python 3 installed, then run:
 
 ```bash
 python3 -m pip install requests
+```
 
 Ensure that you have the requests package installed in the correct environment. 
 
