@@ -14,7 +14,7 @@ Using the OpenAlex API, the script retrieves publication data for a list of rese
 
 ## Features
 
-- Automatic author lookup from ORCID or OpenAlex author IDs
+- Automatic multi-author lookup from ORCID or OpenAlex author IDs in one run
 - Optional date-range filtering
 - Full publication metadata extraction (title, authors, journal, issue, date)
 - Citation analysis and h-index computation
@@ -39,3 +39,9 @@ Ensure that you have the requests package installed in the correct environment.
 
 In order to configure certain settings, you may need to comment/uncomment certain sections or lines of code under ```if __name__ == "__main__":```.
 Additional comments are included within the python script for further guidance when running the script.
+
+## Potential Future Goals
+
+- [ ] Grant tracking by author
+- [ ] Data analytics/visualisations using ```Matplotlib```
+- [ ] Simple user-friendly UI/UX 
