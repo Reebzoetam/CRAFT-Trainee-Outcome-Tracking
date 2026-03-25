@@ -42,6 +42,6 @@ Additional comments are included within the python script for further guidance w
 
 ## Potential Future Goals
 
-- [ ] Grant tracking by author
+- [x] Grant tracking by author
 - [ ] Data analytics/visualisations using ```Matplotlib```
 - [ ] Simple user-friendly UI/UX 
